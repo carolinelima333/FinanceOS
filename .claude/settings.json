@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Um arquivo de código foi modificado. O input JSON está disponível em $ARGUMENTS.\n\nExtrai o campo tool_input.file_path (ou tool_response.filePath) do JSON recebido para saber qual arquivo foi alterado.\n\nSe o arquivo alterado for DOCUMENTACAO.md ou estiver dentro de .claude/, encerre sem fazer nada.\n\nCaso contrário:\n1. Leia o arquivo alterado para entender o que mudou.\n2. Leia o arquivo DOCUMENTACAO.md localizado em c:\\Projetos\\financeiro\\DOCUMENTACAO.md.\n3. Identifique qual(is) seção(ões) da documentação precisa(m) ser atualizada(s) com base na mudança (ex: nova rota → seção API, novo componente → seção Frontend, nova tabela → seção Banco de Dados, etc.).\n4. Atualize DOCUMENTACAO.md refletindo a mudança de forma concisa e precisa, sem remover informações existentes relevantes.\n5. Não adicione comentários sobre o que você fez — apenas atualize o conteúdo da documentação.",
+            "timeout": 120,
+            "statusMessage": "Atualizando documentação..."
+          }
+        ]
+      }
+    ]
+  }
+}
