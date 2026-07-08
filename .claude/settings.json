@@ -10,7 +10,12 @@
       "Bash(git -C \"c:/Projetos/financeiro\" log --oneline -5)",
       "Bash(npx vite *)",
       "Bash(node --check routes/debts.js)",
-      "mcp__claude_ai_Supabase__list_projects"
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(gh repo *)",
+      "Bash(curl -s https://api.github.com/repos/carolinelima333/FinanceOS)",
+      "Bash(node --check app.js)",
+      "Bash(node --check server.js)",
+      "Bash(node --check api/index.js)"
     ]
   },
   "hooks": {
