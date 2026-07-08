@@ -15,7 +15,14 @@
       "Bash(curl -s https://api.github.com/repos/carolinelima333/FinanceOS)",
       "Bash(node --check app.js)",
       "Bash(node --check server.js)",
-      "Bash(node --check api/index.js)"
+      "Bash(node --check api/index.js)",
+      "Bash(ls .vercel)",
+      "Bash(cat .vercel/project.json)",
+      "mcp__claude_ai_Vercel__list_teams",
+      "mcp__claude_ai_Vercel__list_projects",
+      "mcp__claude_ai_Vercel__get_runtime_errors",
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "mcp__claude_ai_Vercel__get_project"
     ]
   },
   "hooks": {
