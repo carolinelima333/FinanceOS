@@ -10,6 +10,7 @@ import { Dividas }      from "./components/Dividas.jsx";
 import { Planejamento } from "./components/Planejamento.jsx";
 import { Inteligencia } from "./components/Inteligencia.jsx";
 import { Relatorios }   from "./components/Relatorios.jsx";
+import { Arquivo }      from "./components/Arquivo.jsx";
 import { Auditoria }    from "./components/Auditoria.jsx";
 import { SalaryModal }    from "./components/modals/SalaryModal.jsx";
 import { AssistantChat } from "./components/AssistantChat.jsx";
@@ -132,6 +133,7 @@ export default function App() {
     planejamento: <Planejamento debts={debts} t={t} salary={salary} />,
     inteligencia: <Inteligencia debts={debts} t={t} salary={salary} />,
     relatorios:   <Relatorios   debts={debts} t={t} showToast={showToast} salary={salary} />,
+    arquivo:      <Arquivo      debts={debts} setDebts={setDebts} t={t} showToast={showToast} />,
     auditoria:    <Auditoria    t={t} />,
   };
 

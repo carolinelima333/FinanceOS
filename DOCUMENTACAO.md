@@ -46,6 +46,7 @@ O sistema resolve um problema muito comum: a falta de visibilidade e controle so
 | **Planejamento** | Simulador de quitação com projeção de 12 meses |
 | **Inteligência** | Score de risco financeiro e recomendações personalizadas |
 | **Relatórios** | Exportação em Excel com múltiplas abas e histórico de pagamentos |
+| **Arquivo** | Consulta de dívidas quitadas, removidas automaticamente da Gestão de Dívidas |
 | **Auditoria** | Log imutável de todas as ações do usuário |
 
 ---
@@ -158,8 +159,17 @@ O FinanceOS segue uma arquitetura **Full-Stack SPA com API REST**, dividida em t
 │ effective_date  │     │ status (text)     │──┘
 │ updated_at      │     │ priority (text)   │
 └─────────────────┘     │ note (text)       │
-                        │ created_at        │
-                        └──────────────────┘
+                     ┌─►│ created_at        │
+┌─────────────────┐  │  └──────────────────┘
+│ debt_payments   │  │
+│─────────────────│  │
+│ id (uuid) PK    │  │
+│ user_id (uuid)  │  │
+│ debt_id (uuid)  │──┘
+│ installment_num │
+│ amount (numeric)│
+│ paid_at (tsz)   │
+└─────────────────┘
 ```
 
 ### Tabela: `debts`
@@ -186,6 +196,21 @@ Armazena todas as dívidas dos usuários.
 
 **Índice**: `debts_user_id_idx` em `user_id` para performance.
 
+### Tabela: `debt_payments`
+
+Histórico imutável de cada parcela paga — registra a data e horário exatos do pagamento (`paid_at`), independente do que aconteça depois com a dívida (edição, reabertura, exclusão).
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | uuid | Chave primária |
+| `user_id` | uuid | FK para `auth.users` — isolamento por usuário |
+| `debt_id` | uuid | FK para `debts` (`ON DELETE CASCADE`) |
+| `installment_number` | integer | Número da parcela paga (equivale ao `paid` da dívida no momento do pagamento) |
+| `amount` | numeric | Valor pago (igual ao `monthly` da dívida no momento do pagamento) |
+| `paid_at` | timestamptz | Data e horário exatos do pagamento (gerado pelo servidor) |
+
+**Índices**: `debt_payments_debt_id_idx` em `debt_id` e `debt_payments_user_id_idx` em `user_id`.
+
 ### Tabela: `user_settings`
 
 Configurações financeiras do usuário.
@@ -206,7 +231,7 @@ Histórico imutável de todas as ações do usuário.
 |---|---|---|
 | `id` | uuid | PK |
 | `user_id` | uuid | FK para `auth.users` |
-| `action` | text | Tipo de ação: `CRIAR`, `EDITAR`, `EXCLUIR`, `SALARIO`, `RESERVA` |
+| `action` | text | Tipo de ação: `CRIAR`, `EDITAR`, `PAGAR`, `EXCLUIR`, `SALARIO`, `RESERVA` |
 | `entity` | text | Entidade afetada: `divida`, `salario`, `reserva` |
 | `entity_id` | uuid | ID da entidade modificada |
 | `description` | text | Descrição legível por humanos |
@@ -328,6 +353,28 @@ Remove uma dívida. Gera registro `EXCLUIR` em `audit_log`.
 { "ok": true }
 ```
 
+#### `POST /api/debts/:id/pay`
+Registra o pagamento da próxima parcela em aberto. Calcula e persiste `rem`, `total`, `paid` e `status` no servidor (evita cálculo duplicado/divergente no frontend), grava um registro em `debt_payments` com a data/horário exato (`paid_at`) e gera `PAGAR` em `audit_log`. Se a parcela paga for a última, `status` vira `paid` e a dívida passa a aparecer somente no Arquivo.
+
+```json
+// Response 200
+{
+  "debt": { "id": "uuid", "paid": 5, "rem": 7, "total": 2450.00, "status": "active", "...": "..." },
+  "payment": { "id": "uuid", "debt_id": "uuid", "installment_number": 5, "amount": 350.00, "paid_at": "2026-07-06T14:32:00.000Z" }
+}
+```
+
+#### `GET /api/debts/:id/payments`
+Retorna o histórico de parcelas pagas de uma dívida, ordenado por `paid_at ASC`.
+
+```json
+// Response 200
+[
+  { "id": "uuid", "debt_id": "uuid", "installment_number": 1, "amount": 350.00, "paid_at": "2026-02-15T13:05:00.000Z" },
+  { "id": "uuid", "debt_id": "uuid", "installment_number": 2, "amount": 350.00, "paid_at": "2026-03-15T09:40:00.000Z" }
+]
+```
+
 ---
 
 ### Configurações — `/api/settings`
@@ -417,15 +464,16 @@ Visão geral consolidada da situação financeira.
 
 ### Tela 2: Dívidas
 
-Gerenciamento completo das dívidas.
+Gerenciamento completo das dívidas **em aberto**. Assim que uma dívida atinge o status `paid` (quitada) — seja pelo registro da última parcela (PayModal) ou pelo botão "✓ Quitar" — ela é automaticamente removida desta tela e passa a aparecer somente na tela **Arquivo** (Tela 6), para consulta.
 
 **Funcionalidades:**
-- Listagem em cards com informações resumidas
-- Filtros: status, titular (`for_`), mês/ano de vencimento
+- Listagem em cards com informações resumidas (somente dívidas não quitadas)
+- Filtros: status (Todas, Em aberto, Em atraso, Negociando), titular (`for_`), mês/ano de vencimento
 - Busca por nome do credor
 - Criação de nova dívida (modal)
 - Edição de dívida existente (modal pré-preenchido)
-- Registro de pagamento de parcela (PayModal)
+- Registro de pagamento de parcela (PayModal) — grava data e horário exatos via `POST /api/debts/:id/pay`
+- Consulta do histórico de parcelas pagas (componente `PaymentHistory`, exibido quando a dívida já tem ao menos 1 parcela paga)
 - Exclusão com confirmação
 - Badges coloridos por status
 
@@ -438,7 +486,7 @@ Gerenciamento completo das dívidas.
 | `overdue` | Vermelho | Em atraso |
 | `negotiating` | Roxo | Em processo de renegociação |
 | `paused` | Cinza | Pagamentos pausados |
-| `paid` | Verde | Quitada |
+| `paid` | Verde | Quitada — sai da Gestão de Dívidas e vai para o Arquivo |
 
 ---
 
@@ -503,16 +551,31 @@ Gera arquivo `.xlsx` com 3 abas:
 
 ---
 
-### Tela 6: Auditoria
+### Tela 6: Arquivo
+
+Consulta de dívidas quitadas (status `paid`). Não faz parte da Gestão de Dívidas — é o destino automático de qualquer dívida assim que é totalmente paga.
+
+**Funcionalidades:**
+- Listagem somente-consulta das dívidas com status `paid`
+- Busca por nome do credor ou categoria
+- Total de valor quitado (Σ parcelas pagas × valor da parcela)
+- Histórico de parcelas pagas por dívida (componente `PaymentHistory`), com data e horário de cada pagamento (`debt_payments.paid_at`)
+- "↩ Reabrir" — retorna a dívida para a Gestão de Dívidas (status volta a `active`)
+- Exclusão definitiva com confirmação
+
+---
+
+### Tela 7: Auditoria
 
 Log completo e filtrado de todas as ações do usuário.
 
 **Funcionalidades:**
-- Filtro por tipo de ação: TODOS, CRIAR, EDITAR, EXCLUIR, SALARIO, RESERVA
+- Filtro por tipo de ação: TODOS, CRIAR, EDITAR, PAGAR, EXCLUIR, SALARIO, RESERVA
 - Cards de contagem por tipo de ação
 - Timeline cronológica (mais recente primeiro)
 - Comparação antes/depois para cada alteração
 - Timestamps precisos
+- Paginação client-side: 15 registros por página, com navegação "Anterior"/"Próxima" (reinicia para a página 1 ao trocar o filtro)
 
 ---
 
@@ -527,6 +590,7 @@ Log completo e filtrado de todas as ações do usuário.
 | `BrandLogo` | Logo do FinanceOS (variantes texto e ícone) |
 | `Toast` | Notificações de sucesso/erro/info temporárias |
 | `Sidebar` | Navegação lateral com menu e toggle de tema |
+| `PaymentHistory` | Lista expansível com data/horário e valor de cada parcela paga de uma dívida (usa `GET /api/debts/:id/payments`) |
 
 ### Modais
 
@@ -589,11 +653,19 @@ paid (paid)               = Parcelas já pagas
 rem  (remaining)          = Parcelas restantes = ti - paid
 total                     = Valor restante = rem × monthly
 
-Ao registrar um pagamento:
+Ao registrar um pagamento (POST /api/debts/:id/pay, calculado no servidor):
   paid  += 1
   rem   -= 1
   total -= monthly
-  Se rem == 0: status → "paid"
+  Se rem == 0: status → "paid" (dívida sai da Gestão de Dívidas e vai para o Arquivo)
+
+  Além disso, é criado um registro em debt_payments:
+    installment_number = paid (após o incremento)
+    amount              = monthly
+    paid_at              = data/horário exatos do servidor no momento do pagamento
+
+  Esse histórico é imutável e consultável a qualquer momento (componente PaymentHistory),
+  mesmo que a dívida seja depois reaberta, editada ou volte a ficar em aberto.
 ```
 
 ### Cálculo de Comprometimento de Renda
@@ -663,7 +735,7 @@ c:\Projetos\financeiro\
 │   │   └── auth.js                   # Valida JWT em toda requisição protegida
 │   └── routes/
 │       ├── auth.js                   # POST /login, POST /register
-│       ├── debts.js                  # GET/POST/PUT/DELETE /debts
+│       ├── debts.js                  # GET/POST/PUT/DELETE /debts, POST /debts/:id/pay, GET /debts/:id/payments
 │       ├── settings.js               # GET/PUT /settings
 │       └── audit.js                  # GET /audit
 │
@@ -683,6 +755,7 @@ c:\Projetos\financeiro\
 │       │   ├── Planejamento.jsx      # Tela: simulador de quitação
 │       │   ├── Inteligencia.jsx      # Tela: score e recomendações
 │       │   ├── Relatorios.jsx        # Tela: relatórios e exportação
+│       │   ├── Arquivo.jsx           # Tela: consulta de dívidas quitadas
 │       │   ├── Auditoria.jsx         # Tela: log de auditoria
 │       │   ├── AuthScreen.jsx        # Tela: login e cadastro
 │       │   ├── Sidebar.jsx           # Navegação lateral
@@ -692,7 +765,8 @@ c:\Projetos\financeiro\
 │       │   │   ├── StatCard.jsx
 │       │   │   ├── SectionTitle.jsx
 │       │   │   ├── ChartCard.jsx
-│       │   │   └── BrandLogo.jsx
+│       │   │   ├── BrandLogo.jsx
+│       │   │   └── PaymentHistory.jsx
 │       │   └── modals/               # Diálogos modais
 │       │       ├── AddDebtModal.jsx
 │       │       ├── PayModal.jsx
@@ -703,7 +777,8 @@ c:\Projetos\financeiro\
 └── supabase/                         # Migrações do banco de dados
     ├── schema.sql                    # Tabela debts + RLS
     ├── migration_audit.sql           # Tabelas audit_log e user_settings
-    └── migration_effective_date.sql  # Coluna effective_date em user_settings
+    ├── migration_effective_date.sql  # Coluna effective_date em user_settings
+    └── migration_debt_payments.sql   # Tabela debt_payments + RLS (histórico de pagamentos)
 ```
 
 ---
@@ -729,6 +804,9 @@ supabase/migration_audit.sql
 
 -- 3. Coluna de data de vigência
 supabase/migration_effective_date.sql
+
+-- 4. Histórico de pagamentos de parcelas
+supabase/migration_debt_payments.sql
 ```
 
 ### 2. Configurar o Backend
@@ -862,6 +940,28 @@ CREATE INDEX audit_log_created_at_idx ON audit_log (created_at DESC);
 -- Adiciona data de vigência do salário
 ALTER TABLE user_settings
 ADD COLUMN IF NOT EXISTS effective_date date;
+```
+
+### `migration_debt_payments.sql` — Histórico de Pagamentos
+
+```sql
+-- Histórico imutável de cada parcela paga (data e horário exatos)
+CREATE TABLE debt_payments (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  debt_id uuid NOT NULL REFERENCES debts(id) ON DELETE CASCADE,
+  installment_number integer NOT NULL,
+  amount numeric NOT NULL DEFAULT 0,
+  paid_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "users_own_debt_payments" ON debt_payments
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX debt_payments_debt_id_idx ON debt_payments (debt_id);
+CREATE INDEX debt_payments_user_id_idx ON debt_payments (user_id);
 ```
 
 ---

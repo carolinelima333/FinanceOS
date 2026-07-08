@@ -5,6 +5,7 @@ import { SectionTitle } from "./shared/SectionTitle.jsx";
 const ACTION_CFG = {
   CRIAR:   { icon:"➕", color:"#10B981", bg:"rgba(16,185,129,0.12)",  label:"Criado"    },
   EDITAR:  { icon:"✏️", color:"#6366F1", bg:"rgba(99,102,241,0.12)",  label:"Editado"   },
+  PAGAR:   { icon:"💵", color:"#10B981", bg:"rgba(16,185,129,0.12)",  label:"Pagamento" },
   EXCLUIR: { icon:"🗑️", color:"#EF4444", bg:"rgba(239,68,68,0.12)",   label:"Excluído"  },
   SALARIO: { icon:"💰", color:"#F59E0B", bg:"rgba(245,158,11,0.12)",  label:"Salário"   },
   RESERVA: { icon:"🏦", color:"#0EA5E9", bg:"rgba(14,165,233,0.12)",  label:"Reserva"   },
@@ -15,11 +16,14 @@ function fmtDate(iso) {
   return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
 }
 
+const PAGE_SIZE = 15;
+
 export function Auditoria({ t }) {
   const [logs,    setLogs]    = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
   const [filter,  setFilter]  = useState("TODOS");
+  const [page,    setPage]    = useState(1);
 
   useEffect(() => {
     api.getAudit(200)
@@ -28,8 +32,12 @@ export function Auditoria({ t }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const filters = ["TODOS","CRIAR","EDITAR","EXCLUIR","SALARIO","RESERVA"];
+  useEffect(() => { setPage(1); }, [filter]);
+
+  const filters = ["TODOS","CRIAR","EDITAR","PAGAR","EXCLUIR","SALARIO","RESERVA"];
   const visible = filter === "TODOS" ? logs : logs.filter(l => l.action === filter);
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const pageItems  = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const counts = {};
   logs.forEach(l => { counts[l.action] = (counts[l.action] || 0) + 1; });
@@ -38,7 +46,7 @@ export function Auditoria({ t }) {
     <div>
       <SectionTitle title="Auditoria" sub="Histórico completo de todas as alterações" t={t} />
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12, marginBottom:22 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:22 }}>
         {Object.entries(ACTION_CFG).map(([key, cfg]) => (
           <div key={key} style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:12, padding:"14px 16px", borderTop:`2px solid ${cfg.color}` }}>
             <div style={{ fontSize:20, marginBottom:4 }}>{cfg.icon}</div>
@@ -76,12 +84,12 @@ export function Auditoria({ t }) {
             Nenhuma atividade registrada ainda.
           </div>
         )}
-        {!loading && !error && visible.map((log, i) => {
+        {!loading && !error && pageItems.map((log, i) => {
           const cfg = ACTION_CFG[log.action] || { icon:"·", color:t.muted, bg:t.surface, label:log.action };
           return (
             <div key={log.id} style={{
               display:"flex", gap:14, padding:"14px 20px",
-              borderBottom: i < visible.length - 1 ? `1px solid ${t.border}` : "none",
+              borderBottom: i < pageItems.length - 1 ? `1px solid ${t.border}` : "none",
               alignItems:"flex-start",
             }}>
               <div style={{
@@ -106,6 +114,36 @@ export function Auditoria({ t }) {
           );
         })}
       </div>
+
+      {!loading && !error && visible.length > 0 && (
+        <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:10, marginTop:16 }}>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            style={{
+              padding:"6px 14px", borderRadius:8, border:`1px solid ${t.border}`,
+              background:"transparent", color: page === 1 ? t.muted : t.text,
+              fontSize:12, cursor: page === 1 ? "default" : "pointer", fontFamily:"inherit",
+              opacity: page === 1 ? 0.5 : 1,
+            }}
+          >
+            Anterior
+          </button>
+          <span style={{ fontSize:12, color:t.muted }}>Página {page} de {totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            style={{
+              padding:"6px 14px", borderRadius:8, border:`1px solid ${t.border}`,
+              background:"transparent", color: page === totalPages ? t.muted : t.text,
+              fontSize:12, cursor: page === totalPages ? "default" : "pointer", fontFamily:"inherit",
+              opacity: page === totalPages ? 0.5 : 1,
+            }}
+          >
+            Próxima
+          </button>
+        </div>
+      )}
     </div>
   );
 }

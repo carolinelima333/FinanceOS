@@ -46,6 +46,8 @@ export const api = {
   createDebt:   (debt)                  => request("POST",   "/debts",         debt),
   updateDebt:   (id, updates)           => request("PUT",    `/debts/${id}`,   updates),
   deleteDebt:   (id)                    => request("DELETE", `/debts/${id}`),
+  payInstallment:   (id)                => request("POST",   `/debts/${id}/pay`),
+  getDebtPayments:  (id)                => request("GET",    `/debts/${id}/payments`),
   getSettings:  ()                      => request("GET",    "/settings"),
   saveSettings: (salary, cash_balance, effective_date) => request("PUT", "/settings", { salary, cash_balance, effective_date }),
   getAudit:          (limit = 100)                    => request("GET",    `/audit?limit=${limit}`),

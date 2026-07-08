@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../lib/api.js";
 import { STATUS_CFG, fmt, fmtK, PIE_COLORS } from "../constants.js";
 import { Badge }        from "./shared/Badge.jsx";
+import { PaymentHistory } from "./shared/PaymentHistory.jsx";
 import { AddDebtModal } from "./modals/AddDebtModal.jsx";
 import { PayModal }     from "./modals/PayModal.jsx";
 
@@ -20,7 +21,8 @@ export function Dividas({ debts, setDebts, t, showToast }) {
     try {
       const updated = await api.updateDebt(id, { status });
       setDebts(p => p.map(d => d.id === id ? { ...d, ...updated } : d));
-      showToast(`Status: ${STATUS_CFG[status]?.label}`);
+      if (status === "paid") showToast("🎉 Dívida quitada! Movida para o Arquivo.");
+      else showToast(`Status: ${STATUS_CFG[status]?.label}`);
     } catch (e) {
       showToast(e.message, "error");
     }
@@ -28,17 +30,12 @@ export function Dividas({ debts, setDebts, t, showToast }) {
 
   const payInstallment = async (debt) => {
     if (debt.rem <= 0) return;
-    const nRem    = debt.rem - 1;
-    const nTotal  = Math.max(0, debt.total - debt.monthly);
-    const nPaid   = debt.paid + 1;
-    const nStatus = nRem === 0 ? "paid" : debt.status;
     try {
-      const updated = await api.updateDebt(debt.id, {
-        rem:nRem, total:nTotal, paid:nPaid, status:nStatus,
-      });
+      const { debt: updated, payment } = await api.payInstallment(debt.id);
       setDebts(p => p.map(d => d.id === debt.id ? { ...d, ...updated } : d));
-      if (nRem === 0) showToast(`🎉 ${debt.creditor} QUITADA!`);
-      else showToast(`✓ ${nPaid}ª/${debt.ti || (debt.rem + debt.paid)} paga! ${nRem} restantes`);
+      const when = new Date(payment.paid_at).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+      if (updated.status === "paid") showToast(`🎉 ${debt.creditor} QUITADA em ${when}! Movida para o Arquivo.`);
+      else showToast(`✓ ${payment.installment_number}ª/${debt.ti || (debt.rem + debt.paid)} paga em ${when}! ${updated.rem} restantes`);
       setPaying(null);
     } catch (e) {
       showToast(e.message, "error");
@@ -107,10 +104,10 @@ export function Dividas({ debts, setDebts, t, showToast }) {
   };
 
   const filtered = debts.filter(d => {
+    if (d.status === "paid") return false;
     if (filter === "active"      && !["active","urgent"].includes(d.status)) return false;
     if (filter === "overdue"     && !["overdue","urgent"].includes(d.status)) return false;
     if (filter === "negotiating" && d.status !== "negotiating") return false;
-    if (filter === "paid"        && d.status !== "paid") return false;
     if (filterFor !== "all"      && d.for_ !== filterFor) return false;
     if (filterYear !== "all" && filterMonth !== "all" && !activeInPeriod(d, Number(filterYear), Number(filterMonth))) return false;
     if (filterYear !== "all" && filterMonth === "all") {
@@ -123,7 +120,7 @@ export function Dividas({ debts, setDebts, t, showToast }) {
     return true;
   });
 
-  const totalVisible = filtered.filter(d => d.status !== "paid").reduce((s,d) => s + d.total, 0);
+  const totalVisible = filtered.reduce((s,d) => s + d.total, 0);
 
   return (
     <div>
@@ -184,7 +181,7 @@ export function Dividas({ debts, setDebts, t, showToast }) {
 
       <div className="filter-bar" style={{ display:"flex", gap:10, alignItems:"center", margin:"18px 0 10px", flexWrap:"wrap" }}>
         <div style={{ display:"flex", background:t.surface, borderRadius:10, padding:3, border:`1px solid ${t.border}` }}>
-          {[{id:"all",l:"Todas"},{id:"active",l:"Em aberto"},{id:"overdue",l:"Em atraso"},{id:"negotiating",l:"Negociando"},{id:"paid",l:"Quitadas"}].map(f => (
+          {[{id:"all",l:"Todas"},{id:"active",l:"Em aberto"},{id:"overdue",l:"Em atraso"},{id:"negotiating",l:"Negociando"}].map(f => (
             <button key={f.id} onClick={() => setFilter(f.id)} style={{
               padding:"7px 14px", borderRadius:8, border:"none", cursor:"pointer",
               fontSize:12, fontWeight: filter===f.id ? 600 : 400,
@@ -282,21 +279,19 @@ export function Dividas({ debts, setDebts, t, showToast }) {
 function DebtRow({ d, t, setEditing, setPaying, updateStatus, del }) {
   const instTotal = d.ti || (d.paid + d.rem);
   const pctPaid   = instTotal > 0 ? Math.round(d.paid / instTotal * 100) : 0;
-  const isPaid    = d.status === "paid";
-  const canPay    = !isPaid && d.rem > 0 && d.monthly > 0;
+  const canPay    = d.rem > 0 && d.monthly > 0;
   const bColor    = ["overdue","urgent"].includes(d.status) ? "#EF4444"
-                  : isPaid ? "#10B981"
                   : d.status === "negotiating" ? "#F59E0B"
                   : "#6366F1";
   return (
-    <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:14, padding:"16px 20px", borderLeft:`3px solid ${bColor}`, opacity:isPaid?0.72:1 }}>
+    <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:14, padding:"16px 20px", borderLeft:`3px solid ${bColor}` }}>
       <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:16, alignItems:"start" }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:6, flexWrap:"wrap" }}>
-            <span style={{ fontSize:14, fontWeight:700, color:isPaid?t.muted:t.text, textDecoration:isPaid?"line-through":"none" }}>{d.creditor}</span>
+            <span style={{ fontSize:14, fontWeight:700, color:t.text }}>{d.creditor}</span>
             <Badge status={d.status}/>
             <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20, background:t.primaryDim, color:t.primary, fontWeight:600 }}>{d.for_}</span>
-            {d.rem===1 && !isPaid && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20, background:"rgba(16,185,129,0.12)", color:"#10B981", fontWeight:700 }}>Última! 🎉</span>}
+            {d.rem===1 && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20, background:"rgba(16,185,129,0.12)", color:"#10B981", fontWeight:700 }}>Última! 🎉</span>}
           </div>
           <div style={{ fontSize:11, color:t.muted, marginBottom:10 }}>
             {d.cat}{d.due?` · Vence dia ${d.due}`:""}{d.note?` · ${d.note}`:""}
@@ -305,17 +300,17 @@ function DebtRow({ d, t, setEditing, setPaying, updateStatus, del }) {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
               <span style={{ fontSize:11, color:t.muted, fontWeight:500 }}>
                 {d.paid} de {instTotal} parcelas pagas
-                {!isPaid && d.rem > 0 && <span style={{ color:"#F59E0B", marginLeft:8 }}>· {d.rem} restantes</span>}
+                {d.rem > 0 && <span style={{ color:"#F59E0B", marginLeft:8 }}>· {d.rem} restantes</span>}
               </span>
-              <span style={{ fontSize:12, fontWeight:700, color:isPaid?"#10B981":pctPaid>70?"#10B981":pctPaid>30?"#F59E0B":t.muted }}>{pctPaid}%</span>
+              <span style={{ fontSize:12, fontWeight:700, color:pctPaid>70?"#10B981":pctPaid>30?"#F59E0B":t.muted }}>{pctPaid}%</span>
             </div>
             <div style={{ height:8, background:t.border, borderRadius:99, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:pctPaid+"%", background:isPaid?"#10B981":pctPaid>70?"#10B981":pctPaid>30?"#F59E0B":"#6366F1", borderRadius:99, transition:"width 0.5s ease" }}/>
+              <div style={{ height:"100%", width:pctPaid+"%", background:pctPaid>70?"#10B981":pctPaid>30?"#F59E0B":"#6366F1", borderRadius:99, transition:"width 0.5s ease" }}/>
             </div>
           </div>
           <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
             {d.monthly > 0 && <div><div style={{ fontSize:10, color:t.muted }}>Parcela mensal</div><div style={{ fontSize:16, fontWeight:700, color:t.text }}>{fmt(d.monthly)}</div></div>}
-            <div><div style={{ fontSize:10, color:t.muted }}>Total restante</div><div style={{ fontSize:16, fontWeight:700, color:isPaid?"#10B981":"#EF4444" }}>{isPaid?"✓ QUITADA":fmt(d.total)}</div></div>
+            <div><div style={{ fontSize:10, color:t.muted }}>Total restante</div><div style={{ fontSize:16, fontWeight:700, color:"#EF4444" }}>{fmt(d.total)}</div></div>
             {d.paid > 0 && d.monthly > 0 && <div><div style={{ fontSize:10, color:t.muted }}>Já quitado</div><div style={{ fontSize:16, fontWeight:700, color:"#10B981" }}>{fmt(d.paid * d.monthly)}</div></div>}
           </div>
         </div>
@@ -325,16 +320,19 @@ function DebtRow({ d, t, setEditing, setPaying, updateStatus, del }) {
               💰 Pagar parcela
             </button>
           )}
-          {isPaid && <div style={{ padding:"9px 14px", borderRadius:9, background:"rgba(16,185,129,0.1)", color:"#10B981", fontSize:13, fontWeight:600, whiteSpace:"nowrap" }}>✓ Quitada</div>}
           <div style={{ display:"flex", gap:5, flexWrap:"wrap", justifyContent:"flex-end" }}>
             <button onClick={() => setEditing(d)} style={{ padding:"5px 10px", borderRadius:7, border:`1px solid ${t.border}`, cursor:"pointer", fontSize:11, background:"transparent", color:t.muted, fontFamily:"inherit" }}>✏️ Editar</button>
-            {!isPaid && <button onClick={() => updateStatus(d.id,"negotiating")} style={{ padding:"5px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, background:"rgba(245,158,11,0.1)", color:"#F59E0B", fontFamily:"inherit" }}>⟳ Negociar</button>}
-            {!isPaid && <button onClick={() => updateStatus(d.id,"paid")} style={{ padding:"5px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, background:"rgba(16,185,129,0.1)", color:"#10B981", fontFamily:"inherit" }}>✓ Quitar</button>}
-            {isPaid  && <button onClick={() => updateStatus(d.id,"active")} style={{ padding:"5px 10px", borderRadius:7, border:`1px solid ${t.border}`, cursor:"pointer", fontSize:11, background:"transparent", color:t.muted, fontFamily:"inherit" }}>↩</button>}
+            <button onClick={() => updateStatus(d.id,"negotiating")} style={{ padding:"5px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, background:"rgba(245,158,11,0.1)", color:"#F59E0B", fontFamily:"inherit" }}>⟳ Negociar</button>
+            <button onClick={() => updateStatus(d.id,"paid")} style={{ padding:"5px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, background:"rgba(16,185,129,0.1)", color:"#10B981", fontFamily:"inherit" }}>✓ Quitar</button>
             <button onClick={() => del(d.id, d.creditor)} style={{ padding:"5px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, background:"rgba(239,68,68,0.1)", color:"#EF4444", fontFamily:"inherit" }}>🗑</button>
           </div>
         </div>
       </div>
+      {d.paid > 0 && (
+        <div style={{ marginTop:12 }}>
+          <PaymentHistory debtId={d.id} t={t} />
+        </div>
+      )}
     </div>
   );
 }
@@ -373,10 +371,8 @@ function GroupedView({ filtered, t, setEditing, setPaying, updateStatus, del, on
       {order.map((person, gi) => {
         const items      = map[person];
         const accent     = GROUP_COLORS[gi % GROUP_COLORS.length];
-        const activeItems = items.filter(d => d.status !== "paid");
-        const monthlySum = activeItems.reduce((s,d) => s + (d.monthly||0), 0);
-        const totalSum   = activeItems.reduce((s,d) => s + (d.total||0), 0);
-        const paidCount  = items.filter(d => d.status === "paid").length;
+        const monthlySum = items.reduce((s,d) => s + (d.monthly||0), 0);
+        const totalSum   = items.reduce((s,d) => s + (d.total||0), 0);
 
         return (
           <div key={person}>
@@ -401,7 +397,6 @@ function GroupedView({ filtered, t, setEditing, setPaying, updateStatus, del, on
                   <div style={{ fontSize:16, fontWeight:700, color:t.text }}>{person}</div>
                   <div style={{ fontSize:12, color:t.muted, marginTop:2 }}>
                     {items.length} dívida{items.length!==1?"s":""}
-                    {paidCount > 0 && <span style={{ color:"#10B981", marginLeft:6 }}>· {paidCount} quitada{paidCount!==1?"s":""}</span>}
                   </div>
                 </div>
               </div>
@@ -439,25 +434,23 @@ function GroupedView({ filtered, t, setEditing, setPaying, updateStatus, del, on
 function PersonDebtCard({ d, t, accent, setEditing, setPaying, updateStatus, del }) {
   const instTotal = d.ti || (d.paid + d.rem);
   const pctPaid   = instTotal > 0 ? Math.round(d.paid / instTotal * 100) : 0;
-  const isPaid    = d.status === "paid";
-  const canPay    = !isPaid && d.rem > 0 && d.monthly > 0;
-  const barColor  = isPaid ? "#10B981" : pctPaid > 70 ? "#10B981" : pctPaid > 30 ? "#F59E0B" : accent;
+  const canPay    = d.rem > 0 && d.monthly > 0;
+  const barColor  = pctPaid > 70 ? "#10B981" : pctPaid > 30 ? "#F59E0B" : accent;
 
   return (
     <div style={{
       background:t.card, border:`1px solid ${t.border}`,
       borderRadius:14, padding:"16px", display:"flex", flexDirection:"column", gap:12,
-      borderTop:`3px solid ${["overdue","urgent"].includes(d.status) ? "#EF4444" : isPaid ? "#10B981" : accent}`,
-      opacity: isPaid ? 0.75 : 1,
+      borderTop:`3px solid ${["overdue","urgent"].includes(d.status) ? "#EF4444" : accent}`,
     }}>
       {/* Topo: nome + badges */}
       <div>
         <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", marginBottom:4 }}>
-          <span style={{ fontSize:14, fontWeight:700, color:isPaid?t.muted:t.text, textDecoration:isPaid?"line-through":"none", flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          <span style={{ fontSize:14, fontWeight:700, color:t.text, flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {d.creditor}
           </span>
           <Badge status={d.status}/>
-          {d.rem===1 && !isPaid && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:20, background:"rgba(16,185,129,0.12)", color:"#10B981", fontWeight:700, flexShrink:0 }}>🎉 Última!</span>}
+          {d.rem===1 && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:20, background:"rgba(16,185,129,0.12)", color:"#10B981", fontWeight:700, flexShrink:0 }}>🎉 Última!</span>}
         </div>
         <div style={{ fontSize:11, color:t.muted }}>
           {d.cat}{d.due ? ` · Vence dia ${d.due}` : ""}{d.note ? ` · ${d.note}` : ""}
@@ -469,7 +462,7 @@ function PersonDebtCard({ d, t, accent, setEditing, setPaying, updateStatus, del
         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
           <span style={{ fontSize:11, color:t.muted }}>
             {d.paid}/{instTotal} parcelas
-            {!isPaid && d.rem > 0 && <span style={{ color:"#F59E0B", marginLeft:6 }}>· {d.rem} restantes</span>}
+            {d.rem > 0 && <span style={{ color:"#F59E0B", marginLeft:6 }}>· {d.rem} restantes</span>}
           </span>
           <span style={{ fontSize:11, fontWeight:700, color:barColor }}>{pctPaid}%</span>
         </div>
@@ -486,9 +479,9 @@ function PersonDebtCard({ d, t, accent, setEditing, setPaying, updateStatus, del
             <div style={{ fontSize:14, fontWeight:700, color:t.text, marginTop:2 }}>{fmt(d.monthly)}</div>
           </div>
         )}
-        <div style={{ flex:1, padding:"8px 10px", borderRadius:9, background: isPaid ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.07)", border:`1px solid ${isPaid?"rgba(16,185,129,0.2)":"rgba(239,68,68,0.15)"}` }}>
+        <div style={{ flex:1, padding:"8px 10px", borderRadius:9, background:"rgba(239,68,68,0.07)", border:"1px solid rgba(239,68,68,0.15)" }}>
           <div style={{ fontSize:9, color:t.muted, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.4px" }}>Restante</div>
-          <div style={{ fontSize:14, fontWeight:700, color:isPaid?"#10B981":"#EF4444", marginTop:2 }}>{isPaid ? "✓ Quitada" : fmt(d.total)}</div>
+          <div style={{ fontSize:14, fontWeight:700, color:"#EF4444", marginTop:2 }}>{fmt(d.total)}</div>
         </div>
       </div>
 
@@ -500,9 +493,8 @@ function PersonDebtCard({ d, t, accent, setEditing, setPaying, updateStatus, del
           </button>
         )}
         <button onClick={() => setEditing(d)} style={{ padding:"8px 10px", borderRadius:9, border:`1px solid ${t.border}`, cursor:"pointer", fontSize:12, background:"transparent", color:t.muted, fontFamily:"inherit" }}>✏️</button>
-        {!isPaid && <button onClick={() => updateStatus(d.id,"negotiating")} style={{ padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12, background:"rgba(245,158,11,0.1)", color:"#F59E0B", fontFamily:"inherit" }}>⟳</button>}
-        {!isPaid && <button onClick={() => updateStatus(d.id,"paid")} style={{ padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12, background:"rgba(16,185,129,0.1)", color:"#10B981", fontFamily:"inherit" }}>✓</button>}
-        {isPaid  && <button onClick={() => updateStatus(d.id,"active")} style={{ padding:"8px 10px", borderRadius:9, border:`1px solid ${t.border}`, cursor:"pointer", fontSize:12, background:"transparent", color:t.muted, fontFamily:"inherit" }}>↩</button>}
+        <button onClick={() => updateStatus(d.id,"negotiating")} style={{ padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12, background:"rgba(245,158,11,0.1)", color:"#F59E0B", fontFamily:"inherit" }}>⟳</button>
+        <button onClick={() => updateStatus(d.id,"paid")} style={{ padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12, background:"rgba(16,185,129,0.1)", color:"#10B981", fontFamily:"inherit" }}>✓</button>
         <button onClick={() => del(d.id, d.creditor)} style={{ padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12, background:"rgba(239,68,68,0.1)", color:"#EF4444", fontFamily:"inherit" }}>🗑</button>
       </div>
     </div>

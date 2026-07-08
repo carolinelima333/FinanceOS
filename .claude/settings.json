@@ -1,4 +1,18 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(curl -s -i http://localhost:3001/api/health)",
+      "Bash(curl -s -i http://localhost:5173/)",
+      "Bash(git -C \"c:/Projetos/financeiro\" status)",
+      "Bash(git -C \"c:/Projetos/financeiro\" log --oneline -5)",
+      "Bash(npx vite *)",
+      "Bash(node --check routes/debts.js)",
+      "mcp__claude_ai_Supabase__list_projects"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {

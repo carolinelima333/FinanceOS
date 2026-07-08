@@ -32,6 +32,7 @@ export const MENU = [
   { id:"planejamento", label:"Planejamento",  icon:"◈" },
   { id:"inteligencia", label:"Inteligência",  icon:"◎" },
   { id:"relatorios",   label:"Relatórios",    icon:"◫" },
+  { id:"arquivo",      label:"Arquivo",       icon:"🗄" },
   { id:"auditoria",    label:"Auditoria",     icon:"◷" },
 ];
 

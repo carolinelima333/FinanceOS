@@ -150,6 +150,77 @@ router.put("/:id", async (req, res) => {
   res.json(data);
 });
 
+router.get("/:id/payments", async (req, res) => {
+  if (!UUID_RE.test(req.params.id))
+    return res.status(400).json({ error: "ID inválido" });
+
+  const { data: debt } = await supabase
+    .from("debts")
+    .select("id")
+    .eq("id", req.params.id)
+    .eq("user_id", req.user.id)
+    .single();
+  if (!debt) return res.status(404).json({ error: "Dívida não encontrada" });
+
+  const { data, error } = await supabase
+    .from("debt_payments")
+    .select("*")
+    .eq("debt_id", req.params.id)
+    .eq("user_id", req.user.id)
+    .order("paid_at", { ascending: true });
+  if (error) return res.status(500).json({ error: "Erro ao buscar histórico de pagamentos" });
+
+  res.json(data);
+});
+
+router.post("/:id/pay", async (req, res) => {
+  if (!UUID_RE.test(req.params.id))
+    return res.status(400).json({ error: "ID inválido" });
+
+  const { data: debt } = await supabase
+    .from("debts")
+    .select("*")
+    .eq("id", req.params.id)
+    .eq("user_id", req.user.id)
+    .single();
+  if (!debt) return res.status(404).json({ error: "Dívida não encontrada" });
+  if (debt.rem <= 0) return res.status(400).json({ error: "Não há parcelas restantes para pagar" });
+
+  const nRem    = debt.rem - 1;
+  const nTotal  = Math.max(0, debt.total - debt.monthly);
+  const nPaid   = debt.paid + 1;
+  const nStatus = nRem === 0 ? "paid" : debt.status;
+  const paidAt  = new Date().toISOString();
+
+  const { data: updated, error } = await supabase
+    .from("debts")
+    .update({ rem:nRem, total:nTotal, paid:nPaid, status:nStatus })
+    .eq("id", req.params.id)
+    .eq("user_id", req.user.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: "Erro ao registrar pagamento" });
+
+  const { data: payment, error: payError } = await supabase
+    .from("debt_payments")
+    .insert([{
+      user_id: req.user.id, debt_id: req.params.id,
+      installment_number: nPaid, amount: debt.monthly, paid_at: paidAt,
+    }])
+    .select()
+    .single();
+  if (payError) return res.status(500).json({ error: "Erro ao registrar histórico de pagamento" });
+
+  await log(
+    req.user.id, "PAGAR", "divida", updated.id,
+    `Parcela ${nPaid}/${debt.ti || (debt.rem + debt.paid)} paga: ${debt.creditor} — ${fmt(debt.monthly)}${nRem === 0 ? " (QUITADA)" : ""}`,
+    { paid: debt.paid, rem: debt.rem, total: debt.total, status: debt.status },
+    { paid: updated.paid, rem: updated.rem, total: updated.total, status: updated.status }
+  );
+
+  res.json({ debt: updated, payment });
+});
+
 router.delete("/:id", async (req, res) => {
   if (!UUID_RE.test(req.params.id))
     return res.status(400).json({ error: "ID inválido" });
