@@ -728,21 +728,28 @@ Aba 3 — Histórico Mensal
 c:\Projetos\financeiro\
 │
 ├── backend/                          # Servidor API Express.js
-│   ├── server.js                     # Entry point — inicializa Express e rotas
+│   ├── app.js                        # Instância Express — middlewares e rotas (sem listen)
+│   ├── server.js                     # Entry point local — importa app.js e chama app.listen()
+│   ├── api/
+│   │   └── index.js                  # Entry point serverless — exporta app.js para a Vercel
+│   ├── vercel.json                   # Rewrites: todas as rotas → api/index.js
 │   ├── package.json                  # Dependências e scripts do backend
 │   ├── .env                          # Variáveis de ambiente (não versionar!)
+│   ├── .env.example                  # Modelo das variáveis de ambiente necessárias
 │   ├── middleware/
 │   │   └── auth.js                   # Valida JWT em toda requisição protegida
 │   └── routes/
 │       ├── auth.js                   # POST /login, POST /register
 │       ├── debts.js                  # GET/POST/PUT/DELETE /debts, POST /debts/:id/pay, GET /debts/:id/payments
 │       ├── settings.js               # GET/PUT /settings
-│       └── audit.js                  # GET /audit
+│       ├── audit.js                  # GET /audit
+│       └── email.js                  # POST /email/send-report — envio de relatório por e-mail (SMTP)
 │
 ├── frontend/                         # SPA React + Vite
 │   ├── index.html                    # HTML shell
 │   ├── vite.config.js                # Proxy /api → :3001 em dev
 │   ├── package.json                  # Dependências e scripts do frontend
+│   ├── .env.example                  # Modelo da variável VITE_API_URL (URL do backend em produção)
 │   └── src/
 │       ├── main.jsx                  # Monta o React no DOM
 │       ├── App.jsx                   # Componente raiz — estado global, roteamento
@@ -869,6 +876,14 @@ CORS_ORIGIN=http://localhost:5173
 
 > **Segurança**: O arquivo `.env` não deve ser versionado. A `SUPABASE_SERVICE_ROLE_KEY` concede acesso total ao banco e deve permanecer exclusivamente no backend.
 
+Arquivo `frontend/.env`:
+
+```env
+# URL absoluta do backend em produção (ex: https://financeos-backend.vercel.app/api)
+# Em desenvolvimento pode ficar vazio — o proxy do Vite cuida de /api.
+VITE_API_URL=
+```
+
 ---
 
 ## 12. Banco de Dados — Migrations
@@ -963,6 +978,26 @@ CREATE POLICY "users_own_debt_payments" ON debt_payments
 CREATE INDEX debt_payments_debt_id_idx ON debt_payments (debt_id);
 CREATE INDEX debt_payments_user_id_idx ON debt_payments (user_id);
 ```
+
+---
+
+## 13. Deploy no Vercel
+
+O projeto é publicado como **dois projetos Vercel separados** (frontend e backend), cada um com seu próprio domínio.
+
+### Backend (`backend/`)
+
+- Root Directory: `backend`
+- `app.js` contém a instância Express (middlewares, rotas); `server.js` a usa localmente com `app.listen()`.
+- `api/index.js` reexporta `app.js` como função serverless — é o entry point que a Vercel invoca.
+- `vercel.json` reescreve todas as rotas (`/(.*)`) para `api/index.js`, preservando o roteamento interno do Express (`/api/auth`, `/api/debts`, etc.).
+- Variáveis de ambiente a configurar no painel da Vercel: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ORIGIN` (URL do frontend em produção), `SMTP_*`.
+
+### Frontend (`frontend/`)
+
+- Root Directory: `frontend`
+- Framework preset: Vite. Build command: `npm run build`. Output directory: `dist`.
+- Variável de ambiente `VITE_API_URL` deve apontar para a URL pública do backend (ex: `https://financeos-backend.vercel.app/api`).
 
 ---
 
