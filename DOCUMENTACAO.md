@@ -727,12 +727,12 @@ Aba 3 — Histórico Mensal
 ```
 c:\Projetos\financeiro\
 │
+├── vercel.json                       # Config do projeto único: builds (backend + frontend) e routes
 ├── backend/                          # Servidor API Express.js
 │   ├── app.js                        # Instância Express — middlewares e rotas (sem listen)
 │   ├── server.js                     # Entry point local — importa app.js e chama app.listen()
 │   ├── api/
 │   │   └── index.js                  # Entry point serverless — exporta app.js para a Vercel
-│   ├── vercel.json                   # Rewrites: todas as rotas → api/index.js
 │   ├── package.json                  # Dependências e scripts do backend
 │   ├── .env                          # Variáveis de ambiente (não versionar!)
 │   ├── .env.example                  # Modelo das variáveis de ambiente necessárias
@@ -983,21 +983,26 @@ CREATE INDEX debt_payments_user_id_idx ON debt_payments (user_id);
 
 ## 13. Deploy no Vercel
 
-O projeto é publicado como **dois projetos Vercel separados** (frontend e backend), cada um com seu próprio domínio.
+O projeto é publicado como **um único projeto Vercel**, com Root Directory na raiz do repositório. O arquivo `vercel.json` (raiz) usa a configuração `builds`/`routes` para combinar o build estático do frontend com a função serverless do backend num só domínio:
 
-### Backend (`backend/`)
+```json
+{
+  "builds": [
+    { "src": "backend/api/index.js", "use": "@vercel/node" },
+    { "src": "frontend/package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/backend/api/index.js" },
+    { "src": "/(.*)", "dest": "/frontend/$1" }
+  ]
+}
+```
 
-- Root Directory: `backend`
-- `app.js` contém a instância Express (middlewares, rotas); `server.js` a usa localmente com `app.listen()`.
-- `api/index.js` reexporta `app.js` como função serverless — é o entry point que a Vercel invoca.
-- `vercel.json` reescreve todas as rotas (`/(.*)`) para `api/index.js`, preservando o roteamento interno do Express (`/api/auth`, `/api/debts`, etc.).
-- Variáveis de ambiente a configurar no painel da Vercel: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ORIGIN` (URL do frontend em produção), `SMTP_*`.
-
-### Frontend (`frontend/`)
-
-- Root Directory: `frontend`
-- Framework preset: Vite. Build command: `npm run build`. Output directory: `dist`.
-- Variável de ambiente `VITE_API_URL` deve apontar para a URL pública do backend (ex: `https://financeos-backend.vercel.app/api`).
+- `backend/app.js` contém a instância Express (middlewares, rotas); `backend/server.js` a usa localmente com `app.listen()`.
+- `backend/api/index.js` reexporta `app.js` como função serverless — é o entry point que a Vercel invoca via `@vercel/node`, que resolve as dependências a partir de `backend/package.json`.
+- `frontend/package.json` é buildado via `@vercel/static-build` (roda `npm run build`, publica `frontend/dist`).
+- Toda requisição a `/api/*` é roteada para a função do backend; todo o restante serve os arquivos estáticos do frontend — logo frontend e backend ficam no mesmo domínio (same-origin), e `VITE_API_URL` pode ficar vazio (usa o padrão relativo `/api`).
+- Variáveis de ambiente a configurar no painel da Vercel (um único projeto): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ORIGIN`, `SMTP_*`.
 
 ---
 
