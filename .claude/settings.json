@@ -22,7 +22,14 @@
       "mcp__claude_ai_Vercel__list_projects",
       "mcp__claude_ai_Vercel__get_runtime_errors",
       "mcp__claude_ai_Vercel__get_runtime_logs",
-      "mcp__claude_ai_Vercel__get_project"
+      "mcp__claude_ai_Vercel__get_project",
+      "Bash(rm -rf .git/refs/original/)",
+      "Bash(git reflog *)",
+      "Bash(git gc *)",
+      "Bash(git stash *)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(pkill -f \"vite\")"
     ]
   },
   "hooks": {

@@ -48,7 +48,10 @@ router.post("/register", async (req, res) => {
     password,
     options: { data: { full_name: name?.trim() ?? "" } },
   });
-  if (error) return res.status(400).json({ error: error.message });
+  if (error) {
+    console.error("Erro no registro:", error.message);
+    return res.status(400).json({ error: "Não foi possível concluir o cadastro. Verifique os dados e tente novamente." });
+  }
 
   res.status(201).json({
     token:   data.session?.access_token ?? null,

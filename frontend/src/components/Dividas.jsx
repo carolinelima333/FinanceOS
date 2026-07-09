@@ -285,7 +285,7 @@ function DebtRow({ d, t, setEditing, setPaying, updateStatus, del }) {
                   : "#6366F1";
   return (
     <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:14, padding:"16px 20px", borderLeft:`3px solid ${bColor}` }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:16, alignItems:"start" }}>
+      <div className="row-card-grid" style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:16, alignItems:"start" }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:6, flexWrap:"wrap" }}>
             <span style={{ fontSize:14, fontWeight:700, color:t.text }}>{d.creditor}</span>

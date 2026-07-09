@@ -28,6 +28,21 @@ export function PDFPreview({ debts, onClose, salary = 0 }) {
     return () => { document.getElementById("pdf-print-css")?.remove(); };
   }, []);
 
+  useEffect(() => {
+    const s = document.createElement("style");
+    s.id = "pdf-mobile-css";
+    s.textContent = `
+      @media (max-width: 640px) {
+        #pdf-root .pdf-actions-bar { padding: 12px 16px !important; }
+        #pdf-root .pdf-content { padding: 16px !important; }
+        #pdf-root .pdf-table-scroll { overflow-x: auto; }
+        #pdf-root .pdf-table-scroll table { min-width: 720px; }
+      }
+    `;
+    document.head.appendChild(s);
+    return () => { document.getElementById("pdf-mobile-css")?.remove(); };
+  }, []);
+
   const col = (bg, label, val) => (
     <div style={{ background:bg, border:"1px solid #e2e8f0", borderRadius:8, padding:"12px 16px", flex:1 }}>
       <div style={{ fontSize:18, fontWeight:800, color:"#0f172a", marginBottom:2 }}>{val}</div>
@@ -41,10 +56,10 @@ export function PDFPreview({ debts, onClose, salary = 0 }) {
       style={{ position:"fixed", inset:0, zIndex:3000, background:"white", overflow:"auto" }}
     >
       {/* Barra de ações — oculta na impressão */}
-      <div className="no-print" style={{
+      <div className="no-print pdf-actions-bar" style={{
         position:"sticky", top:0, background:"white", borderBottom:"2px solid #6366F1",
         padding:"12px 32px", display:"flex", alignItems:"center", justifyContent:"space-between",
-        gap:12, zIndex:10,
+        gap:12, zIndex:10, flexWrap:"wrap",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           {/* Ícone SVG inline da marca */}
@@ -135,7 +150,8 @@ export function PDFPreview({ debts, onClose, salary = 0 }) {
         <div style={{ fontSize:13, fontWeight:700, color:"#1e293b", marginBottom:10, paddingBottom:8, borderBottom:"2px solid #e2e8f0" }}>
           Dívidas em aberto — {active.length} credores
         </div>
-        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, marginBottom:28 }}>
+        <div className="pdf-table-scroll" style={{ marginBottom:28 }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
           <thead>
             <tr>
               {["Credor / Categoria","Para","Parcela/mês","Total restante","Progresso","Vencimento","Status"].map(h => (
@@ -177,6 +193,7 @@ export function PDFPreview({ debts, onClose, salary = 0 }) {
             </tr>
           </tbody>
         </table>
+        </div>
 
         {/* Dívidas quitadas */}
         {paid.length > 0 && (

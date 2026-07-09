@@ -133,7 +133,14 @@ O FinanceOS segue uma arquitetura **Full-Stack SPA com API REST**, dividida em t
 
 - CSS puro em linha (inline styles) — sem frameworks CSS externos.
 - Sistema de temas `TH.dark` / `TH.light` definido em `constants.js`.
-- Media queries para responsividade mobile.
+- Media queries para responsividade mobile, injetadas via `<style>` global em `App.jsx`.
+- Classes utilitárias reutilizáveis para colapsar layouts em telas pequenas (aplicadas nos componentes de tela, combinadas com inline styles):
+  - `grid-stat` — grids de N colunas (cards de estatística) → 2 colunas em ≤768px, 1 coluna em ≤480px.
+  - `grid-2col` — grids de 2 colunas → 1 coluna em ≤768px.
+  - `row-card-grid` — cards em grid `1fr auto` (linha de dívida + ações) → empilha em coluna única em ≤768px.
+  - `debt-actions` — bloco de botões de ação → vira `flex-row` com wrap em ≤768px.
+  - `filter-bar` — barra de filtros → scroll horizontal em ≤768px.
+  - `extrato-table` — tabela de extrato (Relatórios) → ganha `min-width` em ≤768px e rola horizontalmente dentro de um contêiner com `overflow-x:auto`.
 
 ---
 
@@ -270,7 +277,12 @@ Cria um novo usuário.
 
 // Response 201
 { "token": "<jwt>", "user": { "id": "uuid", "email": "user@email.com" }, "message": "Cadastro realizado" }
+
+// Response 400 (erro do Supabase, ex: e-mail já cadastrado)
+{ "error": "Não foi possível concluir o cadastro. Verifique os dados e tente novamente." }
 ```
+
+A mensagem de erro do Supabase (`error.message`) não é mais repassada ao cliente — apenas logada no servidor — para evitar enumeração de e-mails cadastrados.
 
 #### `POST /api/auth/login`
 Autentica um usuário existente.
@@ -548,6 +560,7 @@ Gera arquivo `.xlsx` com 3 abas:
 **Exportação PDF:**
 - Preview em modal antes de exportar
 - Inclui tabela de dívidas e métricas resumidas
+- Responsivo: em telas ≤640px a barra de ações quebra linha e a tabela de dívidas rola horizontalmente dentro de um contêiner com `overflow-x:auto` (largura mínima de 720px preservada para legibilidade)
 
 ---
 

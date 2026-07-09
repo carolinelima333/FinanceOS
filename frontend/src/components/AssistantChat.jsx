@@ -308,7 +308,7 @@ export function AssistantChat({ debts = [], salary = 0, t, mobile = false }) {
       {open && (
         <div style={{
           position:"fixed", bottom:88, right:panelR, zIndex:999,
-          width:panelW, height:510, borderRadius:18,
+          width:panelW, height: mobile ? "min(510px, calc(100vh - 110px))" : 510, borderRadius:18,
           background:t.card, border:`1px solid ${t.border}`,
           boxShadow:"0 20px 60px rgba(0,0,0,0.4)",
           display:"flex", flexDirection:"column", overflow:"hidden",

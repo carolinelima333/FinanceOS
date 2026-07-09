@@ -46,7 +46,7 @@ export function Auditoria({ t }) {
     <div>
       <SectionTitle title="Auditoria" sub="Histórico completo de todas as alterações" t={t} />
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:22 }}>
+      <div className="grid-stat" style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:22 }}>
         {Object.entries(ACTION_CFG).map(([key, cfg]) => (
           <div key={key} style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:12, padding:"14px 16px", borderTop:`2px solid ${cfg.color}` }}>
             <div style={{ fontSize:20, marginBottom:4 }}>{cfg.icon}</div>

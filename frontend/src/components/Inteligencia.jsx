@@ -64,7 +64,7 @@ export function Inteligencia({ debts, t, salary = 0 }) {
     <div>
       <SectionTitle title="Inteligência Financeira" sub="Alertas, análises e recomendações personalizadas" t={t}/>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:18, marginBottom:22 }}>
+      <div className="grid-2col" style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:18, marginBottom:22 }}>
         <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:16, padding:24, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
           <div style={{ width:100, height:100, borderRadius:"50%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14 }}>
             <svg viewBox="0 0 100 100" style={{ position:"absolute", inset:0, transform:"rotate(-90deg)" }}>
@@ -101,7 +101,7 @@ export function Inteligencia({ debts, t, salary = 0 }) {
       </div>
 
       <div style={{ fontSize:14, fontWeight:600, color:t.text, marginBottom:14 }}>💡 Recomendações</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+      <div className="grid-stat" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
         {recs.map((r,i) => (
           <div key={i} style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:12, padding:18 }}>
             <div style={{ fontSize:22, marginBottom:10 }}>{r.icon}</div>

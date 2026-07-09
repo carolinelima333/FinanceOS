@@ -151,8 +151,11 @@ export default function App() {
         @media (max-width: 768px) {
           .grid-2col  { grid-template-columns: 1fr !important; }
           .grid-stat  { grid-template-columns: repeat(2, 1fr) !important; }
-          .debt-actions { flex-direction: row !important; flex-wrap: wrap !important; align-items: flex-start !important; }
+          .debt-actions { flex-direction: row !important; flex-wrap: wrap !important; align-items: flex-start !important; justify-content: flex-start !important; }
           .filter-bar { overflow-x: auto; padding-bottom: 4px; flex-wrap: nowrap !important; }
+          .row-card-grid { grid-template-columns: 1fr !important; }
+          .row-card-grid .debt-actions { justify-content: flex-start !important; margin-top: 10px; }
+          .extrato-table { min-width: 620px; }
         }
         @media (max-width: 480px) {
           .grid-stat  { grid-template-columns: 1fr !important; }

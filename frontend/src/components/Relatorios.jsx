@@ -221,7 +221,7 @@ export function Relatorios({ debts, t, showToast, salary = 0 }) {
         </button>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
+      <div className="grid-stat" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
         {[
           { l:"Total em dívidas",     v:totalD > 0 ? fmt(totalD) : "—",                sub:active.length+" credores ativos", c:"#EF4444" },
           { l:"Comprometimento",      v:pct !== null ? pct+"%" : "—",              sub: pct !== null ? "da renda mensal" : "configure em Planejamento", c:"#F59E0B" },
@@ -260,20 +260,24 @@ export function Relatorios({ debts, t, showToast, salary = 0 }) {
 
       <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:16, padding:24 }}>
         <div style={{ fontSize:14, fontWeight:600, color:t.text, marginBottom:16 }}>Extrato completo — {mesAno}</div>
-        <div style={{ display:"grid", gridTemplateColumns:"2fr 0.8fr 1fr 1fr 1fr", padding:"8px 0", borderBottom:`1px solid ${t.border}` }}>
-          {["Credor","Para","Parcela","Total","Status"].map(h => (
-            <div key={h} style={{ fontSize:10, fontWeight:600, color:t.muted, textTransform:"uppercase", letterSpacing:"0.5px" }}>{h}</div>
-          ))}
-        </div>
-        {active.filter(d => d.monthly > 0).sort((a,b) => b.total - a.total).map(d => (
-          <div key={d.id} style={{ display:"grid", gridTemplateColumns:"2fr 0.8fr 1fr 1fr 1fr", padding:"9px 0", borderBottom:`1px solid ${t.border}`, alignItems:"center" }}>
-            <div style={{ fontSize:13, color:t.text, fontWeight:500 }}>{d.creditor}</div>
-            <div style={{ fontSize:11, color:t.muted }}>{d.for_}</div>
-            <div style={{ fontSize:13, fontWeight:600, color:t.text }}>{fmt(d.monthly)}</div>
-            <div style={{ fontSize:13, color:t.text }}>{fmt(d.total)}</div>
-            <Badge status={d.status}/>
+        <div style={{ overflowX:"auto" }}>
+          <div className="extrato-table">
+            <div style={{ display:"grid", gridTemplateColumns:"2fr 0.8fr 1fr 1fr 1fr", padding:"8px 0", borderBottom:`1px solid ${t.border}` }}>
+              {["Credor","Para","Parcela","Total","Status"].map(h => (
+                <div key={h} style={{ fontSize:10, fontWeight:600, color:t.muted, textTransform:"uppercase", letterSpacing:"0.5px" }}>{h}</div>
+              ))}
+            </div>
+            {active.filter(d => d.monthly > 0).sort((a,b) => b.total - a.total).map(d => (
+              <div key={d.id} style={{ display:"grid", gridTemplateColumns:"2fr 0.8fr 1fr 1fr 1fr", padding:"9px 0", borderBottom:`1px solid ${t.border}`, alignItems:"center" }}>
+                <div style={{ fontSize:13, color:t.text, fontWeight:500 }}>{d.creditor}</div>
+                <div style={{ fontSize:11, color:t.muted }}>{d.for_}</div>
+                <div style={{ fontSize:13, fontWeight:600, color:t.text }}>{fmt(d.monthly)}</div>
+                <div style={{ fontSize:13, color:t.text }}>{fmt(d.total)}</div>
+                <Badge status={d.status}/>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
         <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 0", marginTop:4 }}>
           <div style={{ fontSize:14, fontWeight:700, color:t.text }}>Total</div>
           <div style={{ fontSize:16, fontWeight:800, color:"#EF4444" }}>{fmt(totalD)}</div>

@@ -68,7 +68,7 @@ function ArchivedRow({ d, t, reactivate, del }) {
   const instTotal = d.ti || (d.paid + d.rem);
   return (
     <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:14, padding:"16px 20px", borderLeft:"3px solid #10B981", opacity:0.85 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:16, alignItems:"start" }}>
+      <div className="row-card-grid" style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:16, alignItems:"start" }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:6, flexWrap:"wrap" }}>
             <span style={{ fontSize:14, fontWeight:700, color:t.muted, textDecoration:"line-through" }}>{d.creditor}</span>
