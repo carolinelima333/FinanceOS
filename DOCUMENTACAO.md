@@ -571,6 +571,8 @@ Consulta de dívidas quitadas (status `paid`). Não faz parte da Gestão de Dív
 **Funcionalidades:**
 - Listagem somente-consulta das dívidas com status `paid`
 - Busca por nome do credor ou categoria
+- Filtro "Para quem" (titular `for_`), com o total quitado de cada pessoa — exibido quando há mais de um titular
+- Alternância de visualização **Lista** / **Por pessoa**: a visão por pessoa agrupa as dívidas quitadas por titular, com cabeçalho mostrando quantidade de dívidas, parcelas pagas e total quitado, e cards compactos em grade
 - Total de valor quitado (Σ parcelas pagas × valor da parcela)
 - Histórico de parcelas pagas por dívida (componente `PaymentHistory`), com data e horário de cada pagamento (`debt_payments.paid_at`)
 - "↩ Reabrir" — retorna a dívida para a Gestão de Dívidas (status volta a `active`)
