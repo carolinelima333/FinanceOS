@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../lib/api.js";
 import { fmt } from "../constants.js";
 import { Badge } from "./shared/Badge.jsx";
 import { PaymentHistory } from "./shared/PaymentHistory.jsx";
 
+const PAGE_SIZE = 15;
+
 export function Arquivo({ debts, setDebts, t, showToast }) {
   const [search,    setSearch]    = useState("");
   const [filterFor, setFilterFor] = useState("all");
   const [viewMode,  setViewMode]  = useState("list");
+  const [page,      setPage]      = useState(1);
+
+  useEffect(() => { setPage(1); }, [search, filterFor, viewMode]);
 
   const archived   = debts.filter(d => d.status === "paid");
   const forOptions = ["all", ...Array.from(new Set(archived.map(d => d.for_).filter(Boolean)))];
@@ -20,6 +25,10 @@ export function Arquivo({ debts, setDebts, t, showToast }) {
   });
 
   const totalQuitado = filtered.reduce((s, d) => s + (d.paid || 0) * (d.monthly || 0), 0);
+
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages); // evita página vazia após exclusão/reabertura
+  const pageItems   = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const reactivate = async (d) => {
     try {
@@ -114,10 +123,40 @@ export function Arquivo({ debts, setDebts, t, showToast }) {
         </div>
       ) : viewMode === "list" ? (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {filtered.map(d => <ArchivedRow key={d.id} d={d} t={t} reactivate={reactivate} del={del} />)}
+          {pageItems.map(d => <ArchivedRow key={d.id} d={d} t={t} reactivate={reactivate} del={del} />)}
         </div>
       ) : (
-        <GroupedView filtered={filtered} t={t} reactivate={reactivate} del={del} />
+        <GroupedView filtered={filtered} pageItems={pageItems} t={t} reactivate={reactivate} del={del} />
+      )}
+
+      {filtered.length > PAGE_SIZE && (
+        <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:10, marginTop:16 }}>
+          <button
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            style={{
+              padding:"6px 14px", borderRadius:8, border:`1px solid ${t.border}`,
+              background:"transparent", color: currentPage === 1 ? t.muted : t.text,
+              fontSize:12, cursor: currentPage === 1 ? "default" : "pointer", fontFamily:"inherit",
+              opacity: currentPage === 1 ? 0.5 : 1,
+            }}
+          >
+            Anterior
+          </button>
+          <span style={{ fontSize:12, color:t.muted }}>Página {currentPage} de {totalPages}</span>
+          <button
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            style={{
+              padding:"6px 14px", borderRadius:8, border:`1px solid ${t.border}`,
+              background:"transparent", color: currentPage === totalPages ? t.muted : t.text,
+              fontSize:12, cursor: currentPage === totalPages ? "default" : "pointer", fontFamily:"inherit",
+              opacity: currentPage === totalPages ? 0.5 : 1,
+            }}
+          >
+            Próxima
+          </button>
+        </div>
       )}
     </div>
   );
@@ -160,8 +199,9 @@ function ArchivedRow({ d, t, reactivate, del }) {
 ───────────────────────────────────────────────────────────────*/
 const GROUP_COLORS = ["#6366F1","#10B981","#F59E0B","#0EA5E9","#EC4899","#8B5CF6","#EF4444"];
 
-function GroupedView({ filtered, t, reactivate, del }) {
-  // Agrupa dívidas por titular (for_), mantendo a ordem de primeira aparição
+function GroupedView({ filtered, pageItems, t, reactivate, del }) {
+  // Agrupa todas as dívidas filtradas por titular (for_), mantendo a ordem de primeira aparição.
+  // Os totais e a cor de cada pessoa usam o conjunto completo; só os cards da página atual são exibidos.
   const order = [];
   const map = {};
   filtered.forEach(d => {
@@ -169,14 +209,17 @@ function GroupedView({ filtered, t, reactivate, del }) {
     if (!map[key]) { map[key] = []; order.push(key); }
     map[key].push(d);
   });
+  const onPage = new Set(pageItems.map(d => d.id));
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:28 }}>
       {order.map((person, gi) => {
-        const items   = map[person];
+        const all     = map[person];
+        const items   = all.filter(d => onPage.has(d.id));
+        if (items.length === 0) return null;
         const accent  = GROUP_COLORS[gi % GROUP_COLORS.length];
-        const instSum = items.reduce((s,d) => s + (d.paid||0), 0);
-        const paidSum = items.reduce((s,d) => s + (d.paid||0) * (d.monthly||0), 0);
+        const instSum = all.reduce((s,d) => s + (d.paid||0), 0);
+        const paidSum = all.reduce((s,d) => s + (d.paid||0) * (d.monthly||0), 0);
 
         return (
           <div key={person}>
