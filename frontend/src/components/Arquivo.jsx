@@ -4,7 +4,7 @@ import { fmt } from "../constants.js";
 import { Badge } from "./shared/Badge.jsx";
 import { PaymentHistory } from "./shared/PaymentHistory.jsx";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
 export function Arquivo({ debts, setDebts, t, showToast }) {
   const [search,    setSearch]    = useState("");

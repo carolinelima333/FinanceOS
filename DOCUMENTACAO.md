@@ -573,7 +573,7 @@ Consulta de dívidas quitadas (status `paid`). Não faz parte da Gestão de Dív
 - Busca por nome do credor ou categoria
 - Filtro "Para quem" (titular `for_`), com o total quitado de cada pessoa — exibido quando há mais de um titular
 - Alternância de visualização **Lista** / **Por pessoa**: a visão por pessoa agrupa as dívidas quitadas por titular, com cabeçalho mostrando quantidade de dívidas, parcelas pagas e total quitado, e cards compactos em grade
-- Paginação client-side: 15 dívidas por página, com navegação "Anterior"/"Próxima" (exibida só quando há mais de 15; reinicia para a página 1 ao mudar a busca, o filtro "Para quem" ou a visualização). Na visão por pessoa, a página exibe só os cards daquela página (grupos sem cards na página ficam ocultos), mas o cabeçalho de cada pessoa continua mostrando os totais de todas as dívidas filtradas dela
+- Paginação client-side: 10 dívidas por página, com navegação "Anterior"/"Próxima" (exibida só quando há mais de 10; reinicia para a página 1 ao mudar a busca, o filtro "Para quem" ou a visualização). Na visão por pessoa, a página exibe só os cards daquela página (grupos sem cards na página ficam ocultos), mas o cabeçalho de cada pessoa continua mostrando os totais de todas as dívidas filtradas dela
 - Total de valor quitado (Σ parcelas pagas × valor da parcela)
 - Histórico de parcelas pagas por dívida (componente `PaymentHistory`), com data e horário de cada pagamento (`debt_payments.paid_at`)
 - "↩ Reabrir" — retorna a dívida para a Gestão de Dívidas (status volta a `active`)
